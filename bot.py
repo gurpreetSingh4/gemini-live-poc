@@ -40,7 +40,7 @@ async def run_bot(webrtc_connection):
     )
 
     llm = GeminiLiveLLMService(
-        api_key='',
+        api_key='AIzaSyDjrv7MXwtJ9GOc8CZLokXP0hXh1rkDn_M',
         voice_id="Puck",  # Aoede, Charon, Fenrir, Kore, Puck
         transcribe_user_audio=True,
         transcribe_model_audio=True,
