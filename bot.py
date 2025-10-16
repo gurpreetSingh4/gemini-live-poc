@@ -12,6 +12,14 @@ from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
+from pipecat.services.openai_realtime_beta import (
+    InputAudioNoiseReduction,
+    InputAudioTranscription,
+    OpenAIRealtimeBetaLLMService,
+    SemanticTurnDetection,
+    SessionProperties,
+)
+from pipecat.processors.transcript_processor import TranscriptProcessor
 
 
 
@@ -20,6 +28,8 @@ load_dotenv(override=True)
 SYSTEM_INSTRUCTION = f"""
 "You are Zavis Chatbot, a friendly, helpful robot.
 
+Always respond in English, no matter what language the user speaks.
+
 Your goal is to demonstrate your capabilities in a succinct way.
 
 Your output will be converted to audio so don't include special characters in your answers.
@@ -27,6 +37,19 @@ Your output will be converted to audio so don't include special characters in yo
 Respond to what the user said in a creative and helpful way. Keep your responses brief. One or two sentences at most.
 """
 
+session_properties = SessionProperties(
+        input_audio_transcription=InputAudioTranscription(),
+        # Set openai TurnDetection parameters. Not setting this at all will turn it
+        # on by default
+        turn_detection=SemanticTurnDetection(),
+        # Or set to False to disable openai turn detection and use transport VAD
+        # turn_detection=False,
+        input_audio_noise_reduction=InputAudioNoiseReduction(type="near_field"),
+        # tools=tools,
+        instructions=SYSTEM_INSTRUCTION,
+        
+        
+        )
 
 async def run_bot(webrtc_connection):
     pipecat_transport = SmallWebRTCTransport(
@@ -39,13 +62,21 @@ async def run_bot(webrtc_connection):
         ),
     )
 
-    llm = GeminiLiveLLMService(
+    gemini_live_llm = GeminiLiveLLMService(
         api_key='AIzaSyDjrv7MXwtJ9GOc8CZLokXP0hXh1rkDn_M',
         voice_id="Puck",  # Aoede, Charon, Fenrir, Kore, Puck
         transcribe_user_audio=True,
         transcribe_model_audio=True,
         system_instruction=SYSTEM_INSTRUCTION,
     )
+    
+    openai_realtime_llm = OpenAIRealtimeBetaLLMService(
+        api_key='',
+        session_properties=session_properties,
+        start_audio_paused=False,
+    )
+
+    transcript = TranscriptProcessor()
 
     context = OpenAILLMContext(
         [
@@ -55,14 +86,25 @@ async def run_bot(webrtc_connection):
             }
         ],
     )
-    context_aggregator = llm.create_context_aggregator(context)
+    
+    # context_aggregator = gemini_live_llm.create_context_aggregator(context)
+    context_aggregator = openai_realtime_llm.create_context_aggregator(context)
 
     pipeline = Pipeline(
         [
             pipecat_transport.input(),
             context_aggregator.user(),
-            llm,  # LLM
+            
+            
+            # gemini_live_llm,
+            openai_realtime_llm,
+            
+            #  transcript.user(),
+            
             pipecat_transport.output(),
+            
+            # transcript.assistant(),
+            
             context_aggregator.assistant(),
         ]
     )
@@ -89,3 +131,7 @@ async def run_bot(webrtc_connection):
     runner = PipelineRunner(handle_sigint=False)
 
     await runner.run(task)
+    
+    
+    
+    
