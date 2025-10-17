@@ -29,11 +29,30 @@ app.add_middleware(
 pcs_map: Dict[str, SmallWebRTCConnection] = {}
 
 
-# Multiple STUN servers for better connectivity
+# STUN servers for NAT traversal + TURN servers for connection relay
+# TURN is critical when direct p2p connection fails (common in cloud deployments)
 ice_servers = [
+    # STUN servers (detect public IP and NAT type)
     IceServer(urls="stun:stun.l.google.com:19302"),
     IceServer(urls="stun:stun1.l.google.com:19302"),
-    IceServer(urls="stun:stun2.l.google.com:19302"),
+    
+    # TURN servers (relay connection when direct connection fails)
+    # Using free OpenRelay TURN servers - for production, use Twilio or your own
+    IceServer(
+        urls="turn:openrelay.metered.ca:80",
+        username="openrelayproject",
+        credential="openrelayproject",
+    ),
+    IceServer(
+        urls="turn:openrelay.metered.ca:443",
+        username="openrelayproject",
+        credential="openrelayproject",
+    ),
+    IceServer(
+        urls="turn:openrelay.metered.ca:443?transport=tcp",
+        username="openrelayproject",
+        credential="openrelayproject",
+    ),
 ]
 
 
