@@ -23,6 +23,7 @@
             <select id="model-select">
                 <option value="gemini_live_llm">Gemini Live</option>
                 <option value="openai_realtime_llm">OpenAI Realtime</option>
+                <option value="gemini_vertex_llm">Gemini Vertex</option>
             </select>
         </div>
         
@@ -71,6 +72,14 @@
                     const option = document.createElement('option')
                     option.value = voice
                     option.textContent = voice.charAt(0).toUpperCase() + voice.slice(1)
+                    voiceSelect.appendChild(option)
+                })
+            } else if (model === 'gemini_vertex_llm') {
+                const geminiVoices = ['Puck', 'Aoede', 'Charon', 'Fenrir', 'Kore']
+                geminiVoices.forEach(voice => {
+                    const option = document.createElement('option')
+                    option.value = voice
+                    option.textContent = voice
                     voiceSelect.appendChild(option)
                 })
             }

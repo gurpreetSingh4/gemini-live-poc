@@ -91,15 +91,15 @@ async def run_bot(webrtc_connection, model: str = "gemini_live_llm", voice: str 
             session_properties=session_props,
             start_audio_paused=False,
         )
-    # elif model == "gemini_vertex_llm":
-    #     gemini_vertex_llm = GeminiLiveVertexLLMService(
-    #     credentials=os.getenv("GOOGLE_VERTEX_TEST_CREDENTIALS") or '',
-    #     project_id=os.getenv("GOOGLE_CLOUD_PROJECT_ID") or '',
-    #     location=os.getenv("GOOGLE_CLOUD_LOCATION") or '',
-    #     system_instruction=SYSTEM_INSTRUCTION,
-    #     voice_id="Charon",  # Aoede, Charon, Fenrir, Kore, Puck
-    #     # tools=tools,
-    # )
+    elif model == "gemini_vertex_llm":
+        llm_service = GeminiLiveVertexLLMService(
+        credentials=os.getenv("GOOGLE_VERTEX_TEST_CREDENTIALS") or '',
+        project_id=os.getenv("GOOGLE_CLOUD_PROJECT_ID") or '',
+        location=os.getenv("GOOGLE_CLOUD_LOCATION") or '',
+        system_instruction=SYSTEM_INSTRUCTION,
+        voice_id=voice,  # Aoede, Charon, Fenrir, Kore, Puck
+        # tools=tools,
+    )
     else:
         logger.error(f"Unknown model: {model}")
         raise ValueError(f"Unknown model: {model}")
