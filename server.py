@@ -29,6 +29,8 @@ ice_servers = [
 @app.post("/api/offer")
 async def offer(request: dict, background_tasks: BackgroundTasks):
     pc_id = request.get("pc_id")
+    model = request.get("model", "gemini_live_llm")  # Default to gemini
+    voice = request.get("voice", "Puck")  # Default voice
 
     if pc_id and pc_id in pcs_map:
         pipecat_connection = pcs_map[pc_id]
@@ -43,7 +45,7 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
             logger.info(f"Discarding peer connection for pc_id: {webrtc_connection.pc_id}")
             pcs_map.pop(webrtc_connection.pc_id, None)
 
-        background_tasks.add_task(run_bot, pipecat_connection)
+        background_tasks.add_task(run_bot, pipecat_connection, model, voice)
 
     answer = pipecat_connection.get_answer()
     pcs_map[answer["pc_id"]] = pipecat_connection

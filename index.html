@@ -8,10 +8,36 @@
         body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
         #status { font-size: 20px; margin: 20px; }
         button { padding: 10px 20px; font-size: 16px; }
+        .config-section { max-width: 400px; margin: 20px auto; text-align: left; }
+        .config-row { margin: 15px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select { width: 100%; padding: 8px; font-size: 14px; }
     </style>
 </head>
 <body>
     <h1>Zavis Voice Employee</h1>
+    
+    <div class="config-section">
+        <div class="config-row">
+            <label for="model-select">AI Model:</label>
+            <select id="model-select">
+                <option value="gemini_live_llm">Gemini Live</option>
+                <option value="openai_realtime_llm">OpenAI Realtime</option>
+            </select>
+        </div>
+        
+        <div class="config-row">
+            <label for="voice-select">Voice:</label>
+            <select id="voice-select">
+                <option value="Puck">Puck</option>
+                <option value="Aoede">Aoede</option>
+                <option value="Charon">Charon</option>
+                <option value="Fenrir">Fenrir</option>
+                <option value="Kore">Kore</option>
+            </select>
+        </div>
+    </div>
+    
     <p id="status">Disconnected</p>
     <button id="connect-btn">Connect</button>
     <audio id="audio-el" autoplay></audio>
@@ -20,9 +46,38 @@
         const statusEl = document.getElementById("status")
         const buttonEl = document.getElementById("connect-btn")
         const audioEl = document.getElementById("audio-el")
+        const modelSelect = document.getElementById("model-select")
+        const voiceSelect = document.getElementById("voice-select")
 
         let connected = false
         let peerConnection = null
+        
+        // Update voice options based on selected model
+        const updateVoiceOptions = () => {
+            const model = modelSelect.value
+            voiceSelect.innerHTML = ''
+            
+            if (model === 'gemini_live_llm') {
+                const geminiVoices = ['Puck', 'Aoede', 'Charon', 'Fenrir', 'Kore']
+                geminiVoices.forEach(voice => {
+                    const option = document.createElement('option')
+                    option.value = voice
+                    option.textContent = voice
+                    voiceSelect.appendChild(option)
+                })
+            } else if (model === 'openai_realtime_llm') {
+                const openaiVoices = ['alloy', 'echo', 'shimmer', 'ash', 'ballad', 'coral', 'sage', 'verse']
+                openaiVoices.forEach(voice => {
+                    const option = document.createElement('option')
+                    option.value = voice
+                    option.textContent = voice.charAt(0).toUpperCase() + voice.slice(1)
+                    voiceSelect.appendChild(option)
+                })
+            }
+        }
+        
+        modelSelect.addEventListener('change', updateVoiceOptions)
+        updateVoiceOptions() // Initialize on load
 
         const waitForIceGatheringComplete = async (pc, timeoutMs = 2000) => {
             if (pc.iceGatheringState === 'complete') return;
@@ -66,8 +121,15 @@
             await pc.setLocalDescription(await pc.createOffer())
             await waitForIceGatheringComplete(pc)
             const offer = pc.localDescription
+            const selectedModel = modelSelect.value
+            const selectedVoice = voiceSelect.value
             const response = await fetch('/api/offer', {
-                body: JSON.stringify({ sdp: offer.sdp, type: offer.type}),
+                body: JSON.stringify({ 
+                    sdp: offer.sdp, 
+                    type: offer.type,
+                    model: selectedModel,
+                    voice: selectedVoice
+                }),
                 headers: { 'Content-Type': 'application/json' },
                 method: 'POST',
             });

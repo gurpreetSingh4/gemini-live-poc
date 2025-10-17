@@ -12,10 +12,10 @@ from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
-from pipecat.services.openai_realtime_beta import (
+from pipecat.services.openai_realtime_beta.openai import OpenAIRealtimeBetaLLMService
+from pipecat.services.openai_realtime_beta.events import (
     InputAudioNoiseReduction,
     InputAudioTranscription,
-    OpenAIRealtimeBetaLLMService,
     SemanticTurnDetection,
     SessionProperties,
 )
@@ -53,11 +53,11 @@ session_properties = SessionProperties(
         input_audio_noise_reduction=InputAudioNoiseReduction(type="near_field"),
         # tools=tools,
         instructions=SYSTEM_INSTRUCTION,
-        
-        
         )
 
-async def run_bot(webrtc_connection):
+async def run_bot(webrtc_connection, model: str = "gemini_live_llm", voice: str = "Puck"):
+    logger.info(f"Starting bot with model={model}, voice={voice}")
+    
     pipecat_transport = SmallWebRTCTransport(
         webrtc_connection=webrtc_connection,
         params=TransportParams(
@@ -68,21 +68,31 @@ async def run_bot(webrtc_connection):
         ),
     )
 
-    gemini_live_llm = GeminiLiveLLMService(
-        api_key=os.getenv("GOOGLE_API_KEY") or '',
-        voice_id="Puck",  # Aoede, Charon, Fenrir, Kore, Puck
-        transcribe_user_audio=True,
-        transcribe_model_audio=True,
-        system_instruction=SYSTEM_INSTRUCTION,
-    )
-    
-    openai_realtime_llm = OpenAIRealtimeBetaLLMService(
-        api_key=os.getenv("OPENAI_API_KEY") or '',
-        session_properties=session_properties,
-        start_audio_paused=False,
-    )
-    
-    # gemini_vertex_llm = GeminiLiveVertexLLMService(
+    # Instantiate the correct LLM service based on user selection
+    if model == "gemini_live_llm":
+        llm_service = GeminiLiveLLMService(
+            api_key=os.getenv("GOOGLE_API_KEY") or '',
+            voice_id=voice,  # Aoede, Charon, Fenrir, Kore, Puck
+            transcribe_user_audio=True,
+            transcribe_model_audio=True,
+            system_instruction=SYSTEM_INSTRUCTION,
+        )
+    elif model == "openai_realtime_llm":
+        # Update session properties with the selected voice
+        session_props = SessionProperties(
+            input_audio_transcription=InputAudioTranscription(),
+            turn_detection=SemanticTurnDetection(),
+            input_audio_noise_reduction=InputAudioNoiseReduction(type="near_field"),
+            instructions=SYSTEM_INSTRUCTION,
+            voice=voice,  # alloy, echo, shimmer, ash, ballad, coral, sage, verse
+        )
+        llm_service = OpenAIRealtimeBetaLLMService(
+            api_key=os.getenv("OPENAI_API_KEY") or '',
+            session_properties=session_props,
+            start_audio_paused=False,
+        )
+    # elif model == "gemini_vertex_llm":
+    #     gemini_vertex_llm = GeminiLiveVertexLLMService(
     #     credentials=os.getenv("GOOGLE_VERTEX_TEST_CREDENTIALS") or '',
     #     project_id=os.getenv("GOOGLE_CLOUD_PROJECT_ID") or '',
     #     location=os.getenv("GOOGLE_CLOUD_LOCATION") or '',
@@ -90,6 +100,9 @@ async def run_bot(webrtc_connection):
     #     voice_id="Charon",  # Aoede, Charon, Fenrir, Kore, Puck
     #     # tools=tools,
     # )
+    else:
+        logger.error(f"Unknown model: {model}")
+        raise ValueError(f"Unknown model: {model}")
 
     transcript = TranscriptProcessor()
 
@@ -102,26 +115,14 @@ async def run_bot(webrtc_connection):
         ],
     )
     
-    context_aggregator = gemini_live_llm.create_context_aggregator(context)
-    # context_aggregator = openai_realtime_llm.create_context_aggregator(context)
-    # context_aggregator = gemini_vertex_llm.create_context_aggregator(context)
+    context_aggregator = llm_service.create_context_aggregator(context)
 
     pipeline = Pipeline(
         [
             pipecat_transport.input(),
             context_aggregator.user(),
-            
-            
-            gemini_live_llm,
-            # openai_realtime_llm,
-            # gemini_vertex_llm,
-            
-            #  transcript.user(),
-            
+            llm_service,
             pipecat_transport.output(),
-            
-            # transcript.assistant(),
-            
             context_aggregator.assistant(),
         ]
     )
