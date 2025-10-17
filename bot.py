@@ -20,10 +20,16 @@ from pipecat.services.openai_realtime_beta import (
     SessionProperties,
 )
 from pipecat.processors.transcript_processor import TranscriptProcessor
+from pipecat.services.google.gemini_live.llm_vertex import GeminiLiveVertexLLMService
 
 
 
 load_dotenv(override=True)
+print("OPENAI_API_KEY:", os.getenv("OPENAI_API_KEY"))
+print("GOOGLE_API_KEY:", os.getenv("GOOGLE_API_KEY"))
+print("GOOGLE_VERTEX_TEST_CREDENTIALS:", os.getenv("GOOGLE_VERTEX_TEST_CREDENTIALS"))
+print("GOOGLE_CLOUD_PROJECT_ID:", os.getenv("GOOGLE_CLOUD_PROJECT_ID"))
+print("GOOGLE_CLOUD_LOCATION:", os.getenv("GOOGLE_CLOUD_LOCATION"))
 
 SYSTEM_INSTRUCTION = f"""
 "You are Zavis Chatbot, a friendly, helpful robot.
@@ -63,7 +69,7 @@ async def run_bot(webrtc_connection):
     )
 
     gemini_live_llm = GeminiLiveLLMService(
-        api_key='AIzaSyDjrv7MXwtJ9GOc8CZLokXP0hXh1rkDn_M',
+        api_key=os.getenv("GOOGLE_API_KEY") or '',
         voice_id="Puck",  # Aoede, Charon, Fenrir, Kore, Puck
         transcribe_user_audio=True,
         transcribe_model_audio=True,
@@ -71,10 +77,19 @@ async def run_bot(webrtc_connection):
     )
     
     openai_realtime_llm = OpenAIRealtimeBetaLLMService(
-        api_key='',
+        api_key=os.getenv("OPENAI_API_KEY") or '',
         session_properties=session_properties,
         start_audio_paused=False,
     )
+    
+    # gemini_vertex_llm = GeminiLiveVertexLLMService(
+    #     credentials=os.getenv("GOOGLE_VERTEX_TEST_CREDENTIALS") or '',
+    #     project_id=os.getenv("GOOGLE_CLOUD_PROJECT_ID") or '',
+    #     location=os.getenv("GOOGLE_CLOUD_LOCATION") or '',
+    #     system_instruction=SYSTEM_INSTRUCTION,
+    #     voice_id="Charon",  # Aoede, Charon, Fenrir, Kore, Puck
+    #     # tools=tools,
+    # )
 
     transcript = TranscriptProcessor()
 
@@ -87,8 +102,9 @@ async def run_bot(webrtc_connection):
         ],
     )
     
-    # context_aggregator = gemini_live_llm.create_context_aggregator(context)
-    context_aggregator = openai_realtime_llm.create_context_aggregator(context)
+    context_aggregator = gemini_live_llm.create_context_aggregator(context)
+    # context_aggregator = openai_realtime_llm.create_context_aggregator(context)
+    # context_aggregator = gemini_vertex_llm.create_context_aggregator(context)
 
     pipeline = Pipeline(
         [
@@ -96,8 +112,9 @@ async def run_bot(webrtc_connection):
             context_aggregator.user(),
             
             
-            # gemini_live_llm,
-            openai_realtime_llm,
+            gemini_live_llm,
+            # openai_realtime_llm,
+            # gemini_vertex_llm,
             
             #  transcript.user(),
             
