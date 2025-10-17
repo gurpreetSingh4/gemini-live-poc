@@ -20,4 +20,4 @@ EXPOSE 5501
 
 # Run the FastAPI app via uvicorn
 # Use PORT env var if provided (Railway/Render), otherwise default to 5501
-CMD uvicorn server:app --host 0.0.0.0 --port ${PORT:-5501}
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-5501}"]
