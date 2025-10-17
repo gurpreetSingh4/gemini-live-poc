@@ -8,6 +8,7 @@ import uvicorn
 from bot import run_bot
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from loguru import logger
 from pipecat.transports.smallwebrtc.connection import IceServer, SmallWebRTCConnection
@@ -16,13 +17,23 @@ load_dotenv(override=True)
 
 app = FastAPI()
 
+# Add CORS middleware to allow WebRTC connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 pcs_map: Dict[str, SmallWebRTCConnection] = {}
 
 
+# Multiple STUN servers for better connectivity
 ice_servers = [
-    IceServer(
-        urls="stun:stun.l.google.com:19302",
-    )
+    IceServer(urls="stun:stun.l.google.com:19302"),
+    IceServer(urls="stun:stun1.l.google.com:19302"),
+    IceServer(urls="stun:stun2.l.google.com:19302"),
 ]
 
 
@@ -31,14 +42,18 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
     pc_id = request.get("pc_id")
     model = request.get("model", "gemini_live_llm")  # Default to gemini
     voice = request.get("voice", "Puck")  # Default voice
+    
+    logger.info(f"Received offer request - pc_id: {pc_id}, model: {model}, voice: {voice}")
 
     if pc_id and pc_id in pcs_map:
         pipecat_connection = pcs_map[pc_id]
         logger.info(f"Reusing existing connection for pc_id: {pc_id}")
         await pipecat_connection.renegotiate(sdp=request["sdp"], type=request["type"])
     else:
+        logger.info("Creating new WebRTC connection...")
         pipecat_connection = SmallWebRTCConnection(ice_servers)
         await pipecat_connection.initialize(sdp=request["sdp"], type=request["type"])
+        logger.info("WebRTC connection initialized")
 
         @pipecat_connection.event_handler("closed")
         async def handle_disconnected(webrtc_connection: SmallWebRTCConnection):
@@ -46,10 +61,12 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
             pcs_map.pop(webrtc_connection.pc_id, None)
 
         background_tasks.add_task(run_bot, pipecat_connection, model, voice)
+        logger.info(f"Bot task started for model: {model}, voice: {voice}")
 
     answer = pipecat_connection.get_answer()
     pcs_map[answer["pc_id"]] = pipecat_connection
-
+    
+    logger.info(f"Returning answer for pc_id: {answer['pc_id']}")
     return answer
 
 
