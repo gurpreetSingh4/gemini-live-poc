@@ -1,6 +1,8 @@
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
+import httpx
+import json
 
 from dotenv import load_dotenv
 from loguru import logger
@@ -21,20 +23,19 @@ from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
 load_dotenv(override=True)
 
-# Mock database for demonstration
-# In production, replace with actual database calls
-MOCK_CLIENTS_DB = {}
-MOCK_APPOINTMENTS_DB = []
-MOCK_DOCTORS_DB = [
-    {"id": "dr_001", "name": "Dr. Sarah Johnson", "specialty": "General Medicine"},
-    {"id": "dr_002", "name": "Dr. Michael Chen", "specialty": "Cardiology"},
-    {"id": "dr_003", "name": "Dr. Emily Rodriguez", "specialty": "Dermatology"},
-]
-MOCK_AVAILABLE_SLOTS = {
-    "dr_001": ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"],
-    "dr_002": ["09:30", "11:00", "13:00", "15:00"],
-    "dr_003": ["10:00", "11:30", "14:00", "16:00"],
-}
+# API Configuration
+API_BASE_URL = "https://10953088fc2b.ngrok-free.app"
+API_DOCTOR_BASE_URL = "https://appointment.zavis.ai"
+API_ACCOUNT_ID = 1
+API_CENTER_ID = 0
+API_TIMEZONE = "Asia/Dubai"
+
+logger.info(f"🔧 API Configuration:")
+logger.info(f"   Base URL: {API_BASE_URL}")
+logger.info(f"   Doctor API: {API_DOCTOR_BASE_URL}")
+logger.info(f"   Account ID: {API_ACCOUNT_ID}")
+logger.info(f"   Center ID: {API_CENTER_ID}")
+logger.info(f"   Timezone: {API_TIMEZONE}")
 
 # Tool functions for appointment booking
 
@@ -42,31 +43,83 @@ MOCK_AVAILABLE_SLOTS = {
 async def check_client_existence(params: FunctionCallParams):
     """Check if a client exists by phone number"""
     phone = params.arguments.get("phone")
-    logger.info(f"Checking client existence for phone: {phone}")
+    logger.info(f"🔍 Tool Call: check_client_existence")
+    logger.info(f"   📞 Phone: {phone}")
     
-    # Mock implementation - replace with actual database query
-    client = MOCK_CLIENTS_DB.get(phone)
-    
-    if client:
-        await params.result_callback({
-            "exists": True,
-            "client_data": client
-        })
-    else:
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {
+                "accountId": API_ACCOUNT_ID,
+                "phoneWithOutCountryCode": phone
+            }
+            logger.info(f"   📤 API Request: POST {API_BASE_URL}/clients/find-or-fetch")
+            logger.info(f"   📦 Payload: {json.dumps(payload, indent=2)}")
+            
+            response = await client.post(
+                f"{API_BASE_URL}/clients/find-or-fetch",
+                json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"   ✅ API Response: {json.dumps(data, indent=2)}")
+            
+            # Check if client exists based on API response
+            if data and isinstance(data, dict) and data.get("id"):
+                result = {
+                    "exists": True,
+                    "client_data": data
+                }
+                logger.info(f"   👤 Client Found: ID={data.get('id')}, Name={data.get('firstName', '')} {data.get('lastName', '')}")
+            else:
+                result = {
+                    "exists": False,
+                    "message": "Client not found. Please provide registration details."
+                }
+                logger.info(f"   ❌ Client Not Found")
+            
+            await params.result_callback(result)
+            
+    except Exception as e:
+        logger.error(f"   ❌ Error checking client: {str(e)}")
         await params.result_callback({
             "exists": False,
-            "message": "Client not found. Please provide registration details."
+            "error": str(e),
+            "message": "Unable to check client details. Please try again."
         })
 
 
 async def get_doctor_list(params: FunctionCallParams):
     """Get list of available doctors"""
-    logger.info("Fetching doctor list")
+    logger.info("🔍 Tool Call: get_doctor_list")
     
-    # Mock implementation - replace with actual database query
-    await params.result_callback({
-        "doctors": MOCK_DOCTORS_DB
-    })
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            url = f"{API_BASE_URL}/professionals?accountId={API_ACCOUNT_ID}"
+            logger.info(f"   📤 API Request: GET {url}")
+            
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"   ✅ API Response: {json.dumps(data, indent=2)}")
+            
+            # Extract doctors list from response
+            doctors = data if isinstance(data, list) else []
+            logger.info(f"   👨‍⚕️ Found {len(doctors)} doctors")
+            
+            await params.result_callback({
+                "doctors": doctors,
+                "count": len(doctors)
+            })
+            
+    except Exception as e:
+        logger.error(f"   ❌ Error fetching doctor list: {str(e)}")
+        await params.result_callback({
+            "doctors": [],
+            "error": str(e),
+            "message": "Unable to fetch doctor list. Please try again."
+        })
 
 
 async def get_available_slots(params: FunctionCallParams):
@@ -76,24 +129,60 @@ async def get_available_slots(params: FunctionCallParams):
     duration = params.arguments.get("duration", 30)
     
     # Validate duration
-    valid_durations = [15, 30, 45, 60]
+    valid_durations = ["15", "30", "45", "60"]
     if duration not in valid_durations:
         logger.warning(f"Invalid duration {duration}, defaulting to 30 minutes")
         duration = 30
     
-    logger.info(f"Fetching available slots for doctor: {doctor_id}, date: {date}, duration: {duration}")
+    logger.info(f"🔍 Tool Call: get_available_slots")
+    logger.info(f"   👨‍⚕️ Doctor ID: {doctor_id}")
+    logger.info(f"   📅 Date: {date}")
+    logger.info(f"   ⏱️  Duration: {duration} minutes")
     
-    # Mock implementation - replace with actual database query
-    slots: List[str] = []
-    if doctor_id and isinstance(doctor_id, str):
-        slots = MOCK_AVAILABLE_SLOTS.get(doctor_id, [])
-    
-    await params.result_callback({
-        "doctor_id": doctor_id,
-        "date": date,
-        "duration": duration,
-        "available_slots": slots
-    })
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {
+                "accountId": API_ACCOUNT_ID,
+                "platformCenterId": API_CENTER_ID,
+                "timezone": API_TIMEZONE,
+                "professionalId": int(doctor_id) if doctor_id is not None else 0,
+                "appointmentDate": date,
+                "durations": duration
+            }
+            logger.info(f"   📤 API Request: POST {API_BASE_URL}/professionals/available-slots-v2")
+            logger.info(f"   📦 Payload: {json.dumps(payload, indent=2)}")
+            
+            response = await client.post(
+                f"{API_BASE_URL}/professionals/available-slots-v2",
+                json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"   ✅ API Response: {json.dumps(data, indent=2)}")
+            
+            # Extract slots from response
+            slots = data.get("data", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+            logger.info(f"   🕐 Found {len(slots)} available slots")
+            
+            await params.result_callback({
+                "doctor_id": doctor_id,
+                "date": date,
+                "duration": duration,
+                "available_slots": slots,
+                "count": len(slots)
+            })
+            
+    except Exception as e:
+        logger.error(f"   ❌ Error fetching available slots: {str(e)}")
+        await params.result_callback({
+            "doctor_id": doctor_id,
+            "date": date,
+            "duration": duration,
+            "available_slots": [],
+            "error": str(e),
+            "message": "Unable to fetch available slots. Please try again."
+        })
 
 
 async def book_appointment(params: FunctionCallParams):
@@ -106,71 +195,139 @@ async def book_appointment(params: FunctionCallParams):
     
     # Client information
     full_name = params.arguments.get("full_name")
-    dob = params.arguments.get("dob")
+    dob = params.arguments.get("client_dob")
     gender = params.arguments.get("gender")
     email = params.arguments.get("email")
     phone = params.arguments.get("phone")
-    phone_country_code = params.arguments.get("phone_country_code", "+1")
+    phone_country_code = params.arguments.get("phone_country_code", "+971")
+    client_id = params.arguments.get("client_id", "")
+    remarks = params.arguments.get("remarks", "")
     complaint = params.arguments.get("complaint", "")
     
-    logger.info(f"Booking appointment for {full_name} with {doctor_name} on {date} at {timeslot}")
+    logger.info(f"🔍 Tool Call: book_appointment")
+    logger.info(f"   👤 Client: {full_name}")
+    logger.info(f"   👨‍⚕️ Doctor: {doctor_name} (ID: {doctor_id})")
+    logger.info(f"   📅 Date: {date}")
+    logger.info(f"   🕐 Time: {timeslot}")
+    logger.info(f"   ⏱️  Duration: {duration} minutes")
     
-    # Create appointment ID
-    appointment_id = f"apt_{len(MOCK_APPOINTMENTS_DB) + 1:04d}"
-    
-    # Store client if new
-    if phone not in MOCK_CLIENTS_DB:
-        MOCK_CLIENTS_DB[phone] = {
-            "full_name": full_name,
-            "dob": dob,
-            "gender": gender,
-            "email": email,
-            "phone": phone,
-            "phone_country_code": phone_country_code
-        }
-    
-    # Create appointment
-    appointment = {
-        "id": appointment_id,
-        "doctor_id": doctor_id,
-        "doctor_name": doctor_name,
-        "date": date,
-        "timeslot": timeslot,
-        "duration": duration,
-        "status": "booked",
-        "client_phone": phone,
-        "client_name": full_name,
-        "complaint": complaint,
-        "created_at": datetime.now().isoformat()
-    }
-    
-    MOCK_APPOINTMENTS_DB.append(appointment)
-    
-    await params.result_callback({
-        "success": True,
-        "appointment_id": appointment_id,
-        "message": f"Appointment successfully booked with {doctor_name} on {date} at {timeslot}",
-        "appointment_details": appointment
-    })
+    try:
+        # Calculate end time based on duration
+        from datetime import datetime, timedelta
+        end_time_iso = timeslot or ""
+        try:
+            if timeslot and duration:
+                start_time = datetime.fromisoformat(str(timeslot).replace('Z', '+00:00'))
+                end_time = start_time + timedelta(minutes=int(duration))
+                end_time_iso = end_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        except:
+            pass
+        
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {
+                "accountId": API_ACCOUNT_ID,
+                "platformCenterId": API_CENTER_ID,
+                "professionalId": doctor_id,
+                "clientFullName": full_name,
+                "clientPhoneNumberWithoutCountryCode": phone,
+                "clientPhoneCountryCode": phone_country_code,
+                "clientDob": dob,
+                "clientGender": gender,
+                "clientEmail": email,
+                "appointmentSlot": timeslot,
+                "duration": duration,
+                "complaint": complaint,
+                "remarks": remarks,
+                "paymentRequired": True,
+                "paymentMethod": "online",
+                "currency": "aed",
+                "amount": 2,
+                "platformClientId": client_id,
+                "timezone": API_TIMEZONE,
+            }
+            logger.info(f"   📤 API Request: POST {API_BASE_URL}/appointments")
+            logger.info(f"   📦 Payload: {json.dumps(payload, indent=2)}")
+            
+            response = await client.post(
+                f"{API_BASE_URL}/appointments",
+                json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"   ✅ API Response: {json.dumps(data, indent=2)}")
+            
+            appointment_id = data.get("id") or data.get("appointmentId") or "N/A"
+            logger.info(f"   🎉 Appointment Booked Successfully! ID: {appointment_id}")
+            
+            await params.result_callback({
+                "success": True,
+                "appointment_id": appointment_id,
+                "message": f"Appointment successfully booked with {doctor_name} on {date} at {timeslot}",
+                "appointment_details": data
+            })
+            
+    except Exception as e:
+        logger.error(f"   ❌ Error booking appointment: {str(e)}")
+        await params.result_callback({
+            "success": False,
+            "error": str(e),
+            "message": "Sorry, something went wrong while booking. Please try again or contact our front desk."
+        })
 
 
 async def get_client_appointments(params: FunctionCallParams):
     """Get all appointments for a client by phone number"""
-    phone = params.arguments.get("phone")
+    phone_number = params.arguments.get("phone_number")
+    phone_country_code = params.arguments.get("phone_country_code")
     
-    logger.info(f"Fetching appointments for phone: {phone}")
+    logger.info(f"🔍 Tool Call: get_client_appointments")
+    logger.info(f"   📞 Phone: {phone_country_code}{phone_number}")
     
-    # Mock implementation - replace with actual database query
-    appointments = [apt for apt in MOCK_APPOINTMENTS_DB if apt.get("client_phone") == phone]
-    
-    # Filter out cancelled appointments or include all based on requirements
-    upcoming_appointments = [apt for apt in appointments if apt.get("status") != "cancelled"]
-    
-    await params.result_callback({
-        "phone": phone,
-        "appointments": upcoming_appointments,
-        "count": len(upcoming_appointments)
-    })
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {
+                "accountId": API_ACCOUNT_ID,
+                "centerId": API_CENTER_ID,
+                "timezone": API_TIMEZONE,
+                "phoneWithOutCountryCode": phone_number,
+                "phoneCountryCode": phone_country_code
+            }
+            logger.info(f"   📤 API Request: POST {API_BASE_URL}/appointments/v2")
+            logger.info(f"   📦 Payload: {json.dumps(payload, indent=2)}")
+            
+            response = await client.post(
+                f"{API_BASE_URL}/appointments/v2",
+                json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"   ✅ API Response: {json.dumps(data, indent=2)}")
+            
+            # Extract appointments from response
+            appointments = data.get("data", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+            
+            # Filter upcoming appointments
+            upcoming_appointments = [apt for apt in appointments if apt.get("status") != "cancelled"]
+            logger.info(f"   📋 Found {len(upcoming_appointments)} upcoming appointments")
+            
+            await params.result_callback({
+                "phone": f"{phone_country_code}{phone_number}",
+                "appointments": upcoming_appointments,
+                "count": len(upcoming_appointments)
+            })
+            
+    except Exception as e:
+        logger.error(f"   ❌ Error fetching appointments: {str(e)}")
+        await params.result_callback({
+            "phone": f"{phone_country_code}{phone_number}",
+            "appointments": [],
+            "count": 0,
+            "error": str(e),
+            "message": "Unable to fetch appointments. Please try again."
+        })
 
 
 async def update_appointment(params: FunctionCallParams):
@@ -180,37 +337,54 @@ async def update_appointment(params: FunctionCallParams):
     timeslot = params.arguments.get("timeslot")
     duration = params.arguments.get("duration")
     
-    logger.info(f"Updating appointment {appointment_id}: status={status}, timeslot={timeslot}, duration={duration}")
+    logger.info(f"🔍 Tool Call: update_appointment")
+    logger.info(f"   🎫 Appointment ID: {appointment_id}")
+    logger.info(f"   📊 Status: {status}")
+    logger.info(f"   🕐 New Timeslot: {timeslot}")
+    logger.info(f"   ⏱️  New Duration: {duration}")
     
-    # Find appointment
-    appointment = None
-    for apt in MOCK_APPOINTMENTS_DB:
-        if apt.get("id") == appointment_id:
-            appointment = apt
-            break
-    
-    if not appointment:
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {
+                "accountId": API_ACCOUNT_ID,
+                "centerId": API_CENTER_ID,
+                "timezone": API_TIMEZONE,
+                "appointment_id": appointment_id
+            }
+            
+            if status:
+                payload["status"] = status
+            if timeslot:
+                payload["timeslot"] = timeslot
+            if duration:
+                payload["duration"] = duration
+            
+            logger.info(f"   📤 API Request: POST {API_BASE_URL}/appointments/update-v2")
+            logger.info(f"   📦 Payload: {json.dumps(payload, indent=2)}")
+            
+            response = await client.post(
+                f"{API_BASE_URL}/appointments/update-v2",
+                json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"   ✅ API Response: {json.dumps(data, indent=2)}")
+            logger.info(f"   ✨ Appointment Updated Successfully!")
+            
+            await params.result_callback({
+                "success": True,
+                "message": "Your appointment has been updated successfully!" if status != "cancel" else "✅ Your appointment has been successfully cancelled.",
+                "appointment_details": data
+            })
+            
+    except Exception as e:
+        logger.error(f"   ❌ Error updating appointment: {str(e)}")
         await params.result_callback({
             "success": False,
-            "message": "Appointment not found"
+            "error": str(e),
+            "message": "Sorry, I couldn't update your appointment. Please try again later."
         })
-        return
-    
-    # Update appointment
-    if status:
-        appointment["status"] = status
-    if timeslot:
-        appointment["timeslot"] = timeslot
-    if duration:
-        appointment["duration"] = duration
-    
-    appointment["updated_at"] = datetime.now().isoformat()
-    
-    await params.result_callback({
-        "success": True,
-        "message": "Appointment updated successfully",
-        "appointment_details": appointment
-    })
 
 
 # System instruction for appointment booking assistant
@@ -219,42 +393,152 @@ You are a friendly and professional appointment booking assistant for a medical 
 
 Your name is Zavis Appointment Assistant.
 
-Your primary responsibilities are:
-1. Help users book new appointments
-2. View and manage existing appointments
-3. Reschedule or cancel appointments
-4. Verify client information
+🎯 TRIGGER
+Activate when the user mentions anything related to booking or appointments, such as:
+"book", "appointment", "see a doctor", "schedule a visit", "view my appointments".
 
-Guidelines:
-- Always be warm, friendly, and professional like a clinic receptionist
-- Keep responses brief and clear (1-2 sentences)
-- Use emojis sparingly: 👋 ✅ 🌿
-- Never assume or invent information
-- Always confirm details before proceeding
-- If you don't understand, ask for clarification
+👋 GREETING & CONTEXT
+Start with: "Hello How can I help you today?"
 
-Workflow Overview:
-1. **View/Manage Appointments**: If user wants to view, reschedule, or cancel
-   - Use @client_appointments to fetch their appointments
-   - Display appointments with all details
-   - Help them update or cancel as needed
+---
 
-2. **Book New Appointment**:
-   - Show available doctors using @doctor_list
-   - Get date preference from user
-   - Ask for appointment duration (15, 30, 45, or 60 minutes)
-   - Show available slots using @available_slots
-   - Verify client with @client_existence_check
-   - If client exists, confirm their details
-   - If new client, collect: name, DOB (YYYY-MM-DD), gender, email, phone
-   - Collect complaint/remarks
-   - Book using @appointment_booking_tool
+📋 1. VIEW / MANAGE EXISTING APPOINTMENTS
 
-3. **Update Appointment**:
-   - For cancellation: directly update with status="cancel"
-   - For rescheduling: fetch new slots, then update with new timeslot/duration
+If user wants to view, update, reschedule, or cancel an appointment:
 
-Important: Always respond in English, keep it conversational, and guide users step by step.
+✅ Do NOT ask for phone number - use client's existing phone from context
+✅ Call: @client_appointments
+
+**If appointments found:**
+"Here are your upcoming appointments:"
+(Display details exactly as returned — id, doctor, date, time, status)
+
+**Branch A: Change Status or Update**
+a. Identify Appointment:
+   "Which appointment would you like to update?" (if multiple)
+
+b. Determine Update Type:
+
+   **Case 1: Status = "cancel"**
+   If user says "cancel my appointment":
+   ✅ Directly call @update_appointment with:
+   {
+     "appointment_id": <id>,
+     "status": "cancel"
+   }
+   Response: "✅ Your appointment has been successfully cancelled."
+
+   **Case 2: Reschedule (change timeslot/duration)**
+   1. Ask: "Sure! What date would you like to reschedule to?"
+   2. Ask: "How long would you like your appointment to be — 15, 30, 45, or 60 minutes?"
+   3. Call: @available_slots with selected doctor, new date, duration
+   4. Show: "Here are available slots for [Doctor] on [Date], each [Duration] mins. Which one?"
+   5. When slot selected → Call: @update_appointment with:
+   {
+     "appointment_id": <id>,
+     "duration": <selectedDuration>,
+     "timeslot": "<selectedSlot>"
+   }
+   
+   ✅ On success: "Your appointment has been updated successfully!"
+   ❌ On failure: "Sorry, I couldn't update your appointment. Please try again later."
+
+**If none found:**
+"I couldn't find any upcoming appointments linked to your number."
+
+---
+
+🏥 2. BOOK A NEW APPOINTMENT
+
+**a. Fetch Doctors**
+Call: @doctor_list
+✅ If available → "Here are our available doctors — please choose one."
+❌ If none → "Looks like we don't have available doctors right now. Please check back later."
+
+**b. Doctor Selection**
+After selection: "Great! You chose [Doctor Name]. Which date (day month year) would you like to schedule your appointment for?"
+tell selected doctors date (day, month, year)
+
+**c. Duration Selection**
+"How long would you like your appointment to be — 15, 30, 45, or 60 minutes?"
+
+**d. Fetch Available Slots**
+Call: @available_slots with doctor ID, date, and duration
+✅ Show: "Here are available slots for [Date], each [Duration] mins. Which one would you like?"
+❌ If none: "No open slots for that doctor on this date. Would you like to try another duration, date, or doctor?"
+
+---
+
+👤 3. CLIENT VERIFICATION
+
+After slot selection:
+"Please share your phone number (without country code) so I can check if you're already registered."
+
+Call: @client_existence_check with the provided phone
+
+**Branch A: Client Exists**
+Display found details for confirmation:
+"I found your details:
+Name: [Full Name]
+DOB: [Date of Birth]
+Gender: [Gender]
+Email: [Email]
+Phone: [phone]
+PhoneCountryCode: [phoneCountryCode]
+
+Please confirm if everything looks correct."
+
+✅ If confirmed → Ask for complaint/remarks
+✅ Call: @appointment_booking_tool with all details
+
+**Branch B: Client Not Found**
+"Looks like this number isn't registered yet. Let's get your details."
+
+Collect sequentially:
+1. Full Name
+2. Date of Birth (ISO format: YYYY-MM-DDTHH:MM:SS.sssZ)
+3. Gender ("male", "female")
+4. Email
+5. Phone (local number)
+6. PhoneCountryCode (e.g., +971, +91)
+
+Then collect complaint or remarks
+✅ Call: @appointment_booking_tool with full details
+appointment timeslot is in (ISO format: YYYY-MM-DDTHH:MM:SS.sssZ)
+dob ( client date of birth) should be in (ISO format: YYYY-MM-DDTHH:MM:SS.sssZ)
+platform client Id is like "FSMR000044", "MR0000"
+
+---
+
+✅ 4. BOOKING CONFIRMATION
+
+While booking: "Booking your appointment, please hold on…"
+
+**On Success:**
+"✅ Your appointment with [Doctor Name] has been confirmed! You'll receive a confirmation message shortly."
+
+**On Failure:**
+"Sorry, something went wrong while booking. Please try again or contact our front desk."
+
+---
+
+❓ 5. GENERAL QUERIES
+
+If unrelated question (hours, address, etc.):
+"I can help you with appointment bookings right now. For other details, please contact our front desk or I can connect you to an agent."
+
+If medical/legal advice:
+"I'm not qualified to provide medical advice, but I can book you an appointment with a specialist."
+
+---
+
+🎨 TONE & STYLE
+✅ Friendly, calm, professional — like a clinic receptionist
+✅ Keep responses short (1-2 sentences)
+✅ Never invent or assume data
+✅ Use emojis sparingly: 👋 ✅ 🌿
+✅ Always confirm before proceeding
+✅ Guide users step by step
 """
 
 
@@ -298,11 +582,11 @@ async def run_appointment_bot(webrtc_connection, voice: str = "Puck"):
         properties={
             "doctor_id": {
                 "type": "string",
-                "description": "The unique identifier of the doctor",
+                "description": "The unique identifier of the doctor (number as string)",
             },
             "date": {
                 "type": "string",
-                "description": "The date for the appointment in YYYY-MM-DD format",
+                "description": "The date for the appointment in ISO format (e.g., 2025-12-18T00:37:35.553Z)",
             },
             "duration": {
                 "type": "integer",
@@ -317,42 +601,46 @@ async def run_appointment_bot(webrtc_connection, voice: str = "Puck"):
         description="Book a new appointment with all client and appointment details",
         properties={
             "doctor_id": {"type": "string", "description": "Doctor's unique ID"},
-            "doctor_name": {"type": "string", "description": "Doctor's full name"},
-            "date": {"type": "string", "description": "Appointment date (YYYY-MM-DD)"},
-            "timeslot": {"type": "string", "description": "Appointment time slot (HH:MM format)"},
-            "duration": {"type": "integer", "description": "Appointment duration in minutes"},
             "full_name": {"type": "string", "description": "Client's full name"},
-            "dob": {"type": "string", "description": "Client's date of birth (YYYY-MM-DD)"},
-            "gender": {"type": "string", "description": "Client's gender", "enum": ["male", "female"]},
+            "phone": {"type": "string", "description": "Client's phone number without country code (e.g., 9876543210)"},
+            "phone_country_code": {"type": "string", "description": "Phone country code (e.g., +971, +91)"},
+            "dob": {"type": "string", "description": "Client's date of birth in ISO format (e.g., 1990-01-15T00:00:00.000Z)"},
+            "gender": {"type": "string", "description": "Client's gender (male, female)"},
             "email": {"type": "string", "description": "Client's email address"},
-            "phone": {"type": "string", "description": "Client's phone number"},
-            "phone_country_code": {"type": "string", "description": "Phone country code (e.g., +1)"},
+            "timeslot": {"type": "string", "description": "Appointment time slot in ISO format (e.g., 2025-12-18T09:00:00.000Z)"},
+            "duration": {"type": "integer", "description": "Appointment duration in minutes (15, 30, 45, or 60)"},
             "complaint": {"type": "string", "description": "Client's complaint or reason for visit"},
+            "remarks": {"type": "string", "description": "Additional notes or remarks"},
+            "client_id": {"type": "string", "description": "platform ClientId  from system (if client exists)"},
         },
-        required=["doctor_id", "doctor_name", "date", "timeslot", "duration", 
-                 "full_name", "dob", "gender", "email", "phone"],
+        required=["doctor_id", "full_name", "timeslot", "duration", 
+                 "full_name", "dob", "gender", "email", "phone", "phone_country_code", "client_id", "remarks", "complaint"],
     )
 
     client_appointments_function = FunctionSchema(
         name="client_appointments",
         description="Get all appointments for a client using their phone number",
         properties={
-            "phone": {
+            "phone_number": {
                 "type": "string",
-                "description": "Client's phone number",
+                "description": "The client's phone number without country code (e.g., 9876543210)",
+            },
+            "phone_country_code": {
+                "type": "string",
+                "description": "The country code for the phone number (e.g., +971, +91)",
             },
         },
-        required=["phone"],
+        required=["phone_number", "phone_country_code"],
     )
 
     update_appointment_function = FunctionSchema(
         name="update_appointment",
         description="Update an existing appointment (reschedule or cancel)",
         properties={
-            "appointment_id": {"type": "string", "description": "The unique appointment ID"},
-            "status": {"type": "string", "description": "New status", "enum": ["booked", "confirmed", "cancel"]},
-            "timeslot": {"type": "string", "description": "New time slot (HH:MM) if rescheduling"},
-            "duration": {"type": "integer", "description": "New duration if changing"},
+            "appointment_id": {"type": "integer", "description": "The unique appointment ID (integer)"},
+            "status": {"type": "string", "description": "New status (booked, confirmed, cancel)"},
+            "timeslot": {"type": "string", "description": "New time slot in ISO format (e.g., 2025-12-18T09:00:00.000Z) if rescheduling"},
+            "duration": {"type": "integer", "description": "New duration in minutes (15, 30, 45, 60) if changing"},
         },
         required=["appointment_id"],
     )
