@@ -7,15 +7,24 @@
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
         #status { font-size: 20px; margin: 20px; }
-        button { padding: 10px 20px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; }
         .config-section { max-width: 400px; margin: 20px auto; text-align: left; }
         .config-row { margin: 15px 0; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         select { width: 100%; padding: 8px; font-size: 14px; }
+        .button-group { margin: 20px 0; }
+        .appointment-btn { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        .appointment-btn:hover { background-color: #45a049; }
+        .general-btn { background-color: #008CBA; color: white; border: none; cursor: pointer; }
+        .general-btn:hover { background-color: #007399; }
+        .disconnect-btn { background-color: #f44336; color: white; border: none; cursor: pointer; }
+        .disconnect-btn:hover { background-color: #da190b; }
     </style>
 </head>
 <body>
     <h1>Zavis Voice Employee</h1>
+    
+    <div id="server-info" style="font-size: 12px; color: #666; margin: 10px 0;"></div>
     
     <div class="config-section">
         <div class="config-row">
@@ -40,18 +49,39 @@
     </div>
     
     <p id="status">Disconnected</p>
-    <button id="connect-btn">Connect</button>
+    
+    <div class="button-group">
+        <button id="connect-btn" class="general-btn">Connect (General Assistant)</button>
+        <button id="appointment-btn" class="appointment-btn">Book Appointment</button>
+    </div>
+    
     <audio id="audio-el" autoplay></audio>
 
     <script>
+        // Configuration: Set your server URL here
+        // If empty, it will use the same origin (for production)
+        // For development with different ports, set explicitly
+        const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:5502'  // Development server port
+            : '';  // Production: same origin
+        
+        const effectiveServerUrl = SERVER_URL || window.location.origin;
+        console.log('Server URL:', effectiveServerUrl);
+        
+        // Display server info
+        document.getElementById('server-info').textContent = 
+            `Server: ${effectiveServerUrl} | Served from: ${window.location.origin}`;
+
         const statusEl = document.getElementById("status")
         const buttonEl = document.getElementById("connect-btn")
+        const appointmentBtn = document.getElementById("appointment-btn")
         const audioEl = document.getElementById("audio-el")
         const modelSelect = document.getElementById("model-select")
         const voiceSelect = document.getElementById("voice-select")
 
         let connected = false
         let peerConnection = null
+        let currentMode = null // 'general' or 'appointment'
         
         // Update voice options based on selected model
         const updateVoiceOptions = () => {
@@ -117,7 +147,7 @@
         };
 
 
-        const createSmallWebRTCConnection = async (audioTrack) => {
+        const createSmallWebRTCConnection = async (audioTrack, mode) => {
             const config = {
               iceServers: [
                   // STUN servers for NAT traversal
@@ -152,12 +182,17 @@
             const offer = pc.localDescription
             const selectedModel = modelSelect.value
             const selectedVoice = voiceSelect.value
-            const response = await fetch('/api/offer', {
+            
+            // Use configured server URL or same origin
+            const apiUrl = SERVER_URL ? `${SERVER_URL}/api/offer` : '/api/offer';
+            
+            const response = await fetch(apiUrl, {
                 body: JSON.stringify({ 
                     sdp: offer.sdp, 
                     type: offer.type,
                     model: selectedModel,
-                    voice: selectedVoice
+                    voice: selectedVoice,
+                    mode: mode  // 'general' or 'appointment'
                 }),
                 headers: { 'Content-Type': 'application/json' },
                 method: 'POST',
@@ -167,10 +202,11 @@
             return pc
         }
 
-        const connect = async () => {
-            _onConnecting()
+        const connect = async (mode) => {
+            _onConnecting(mode)
             const audioStream = await navigator.mediaDevices.getUserMedia({audio: true})
-            peerConnection= await createSmallWebRTCConnection(audioStream.getAudioTracks()[0])
+            peerConnection = await createSmallWebRTCConnection(audioStream.getAudioTracks()[0], mode)
+            currentMode = mode
         }
 
         const addPeerConnectionEventListeners = (pc) => {
@@ -195,22 +231,39 @@
             };
         }
 
-        const _onConnecting = () => {
-            statusEl.textContent = "Connecting"
-            buttonEl.textContent = "Disconnect"
+        const _onConnecting = (mode) => {
+            const modeText = mode === 'appointment' ? 'Appointment Bot' : 'General Assistant'
+            statusEl.textContent = `Connecting to ${modeText}...`
+            updateButtonStates(true)
             connected = true
         }
 
         const _onConnected = () => {
-            statusEl.textContent = "Connected"
-            buttonEl.textContent = "Disconnect"
+            const modeText = currentMode === 'appointment' ? 'Appointment Bot' : 'General Assistant'
+            statusEl.textContent = `Connected to ${modeText}`
+            updateButtonStates(true)
             connected = true
         }
 
         const _onDisconnected = () => {
             statusEl.textContent = "Disconnected"
-            buttonEl.textContent = "Connect"
+            updateButtonStates(false)
             connected = false
+            currentMode = null
+        }
+
+        const updateButtonStates = (isConnected) => {
+            if (isConnected) {
+                buttonEl.textContent = "Disconnect"
+                buttonEl.className = "disconnect-btn"
+                appointmentBtn.disabled = true
+                appointmentBtn.style.opacity = "0.5"
+            } else {
+                buttonEl.textContent = "Connect (General Assistant)"
+                buttonEl.className = "general-btn"
+                appointmentBtn.disabled = false
+                appointmentBtn.style.opacity = "1"
+            }
         }
 
         const disconnect = () => {
@@ -224,9 +277,15 @@
 
         buttonEl.addEventListener("click", async () => {
             if (!connected) {
-                await connect()
+                await connect('general')
             } else {
                 disconnect()
+            }
+        });
+
+        appointmentBtn.addEventListener("click", async () => {
+            if (!connected) {
+                await connect('appointment')
             }
         });
     </script>

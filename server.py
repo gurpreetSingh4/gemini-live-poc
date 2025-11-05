@@ -6,6 +6,7 @@ from typing import Dict
 
 import uvicorn
 from bot import run_bot
+from appointment_bot import run_appointment_bot
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,8 +62,9 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
     pc_id = request.get("pc_id")
     model = request.get("model", "gemini_live_llm")  # Default to gemini
     voice = request.get("voice", "Puck")  # Default voice
+    mode = request.get("mode", "general")  # 'general' or 'appointment'
     
-    logger.info(f"Received offer request - pc_id: {pc_id}, model: {model}, voice: {voice}")
+    logger.info(f"Received offer request - pc_id: {pc_id}, model: {model}, voice: {voice}, mode: {mode}")
 
     if pc_id and pc_id in pcs_map:
         pipecat_connection = pcs_map[pc_id]
@@ -79,8 +81,13 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
             logger.info(f"Discarding peer connection for pc_id: {webrtc_connection.pc_id}")
             pcs_map.pop(webrtc_connection.pc_id, None)
 
-        background_tasks.add_task(run_bot, pipecat_connection, model, voice)
-        logger.info(f"Bot task started for model: {model}, voice: {voice}")
+        # Route to appropriate bot based on mode
+        if mode == "appointment":
+            logger.info("Starting appointment booking bot")
+            background_tasks.add_task(run_appointment_bot, pipecat_connection, voice)
+        else:
+            logger.info(f"Starting general bot with model: {model}, voice: {voice}")
+            background_tasks.add_task(run_bot, pipecat_connection, model, voice)
 
     answer = pipecat_connection.get_answer()
     pcs_map[answer["pc_id"]] = pipecat_connection
