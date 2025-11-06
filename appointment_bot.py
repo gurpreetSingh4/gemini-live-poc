@@ -465,6 +465,12 @@ tell selected doctors date (day, month, year)
 **d. Fetch Available Slots**
 Call: @available_slots with doctor ID, date, and duration
 ✅ Show: "Here are available slots for [Date], each [Duration] mins. Which one would you like?"
+you get  [
+    "18 Dec 2025 07:30:00",
+    "18 Dec 2025 07:45:00",
+    "18 Dec 2025 08:00:00",
+    "18 Dec 2025 13:15:00",]
+you have to speak as Date 18 Dec 2025 Time slots is like 7:30 AM, 1:15PM
 ❌ If none: "No open slots for that doctor on this date. Would you like to try another duration, date, or doctor?"
 
 ---
