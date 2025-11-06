@@ -63,8 +63,9 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
     model = request.get("model", "gemini_live_llm")  # Default to gemini
     voice = request.get("voice", "Puck")  # Default voice
     mode = request.get("mode", "general")  # 'general' or 'appointment'
+    language = request.get("language", "en")  # Default to English, supports: en, ar, hi, es, fr
     
-    logger.info(f"Received offer request - pc_id: {pc_id}, model: {model}, voice: {voice}, mode: {mode}")
+    logger.info(f"Received offer request - pc_id: {pc_id}, model: {model}, voice: {voice}, mode: {mode}, language: {language}")
 
     if pc_id and pc_id in pcs_map:
         pipecat_connection = pcs_map[pc_id]
@@ -83,8 +84,8 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
 
         # Route to appropriate bot based on mode
         if mode == "appointment":
-            logger.info("Starting appointment booking bot")
-            background_tasks.add_task(run_appointment_bot, pipecat_connection, voice)
+            logger.info(f"Starting appointment booking bot with language: {language}")
+            background_tasks.add_task(run_appointment_bot, pipecat_connection, voice, language)
         else:
             logger.info(f"Starting general bot with model: {model}, voice: {voice}")
             background_tasks.add_task(run_bot, pipecat_connection, model, voice)
