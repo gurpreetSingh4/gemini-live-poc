@@ -489,10 +489,10 @@ Call: @client_existence_check with the provided phone
 Display found details for confirmation:
 "I found your details:
 Name: [Full Name]
-DOB: [Date of Birth]
+DOB: [Date of Birth] you get like this "1970-01-01T00:00:00.000Z" you should speek like date "1", month "January", year "1970"
 Gender: [Gender]
 Email: [Email]
-Phone: [phone]
+Phone: [phone]  you get "7082412756". you should speak like "seven zero eight two four one two seven five six"
 PhoneCountryCode: [phoneCountryCode]
 
 Please confirm if everything looks correct."
@@ -648,13 +648,13 @@ If medical/legal advice:
 استدعِ: @client_existence_check مع الهاتف المقدم
 
 **الفرع أ: العميل موجود**
-اعرض التفاصيل الموجودة للتأكيد:
+اعرض التفاصيل الموجودة للتأكيم:
 "لقد وجدت تفاصيلك:
 الاسم: [الاسم الكامل]
-تاريخ الميلاد: [تاريخ الميلاد]
+تاريخ الميلاد: [تاريخ الميلاد] تحصل على هذا مثل "1970-01-01T00:00:00.000Z" يجب أن تتحدث مثل التاريخ "1"، الشهر "يناير"، السنة "1970"
 الجنس: [الجنس]
 البريد الإلكتروني: [البريد الإلكتروني]
-الهاتف: [الهاتف]
+الهاتف: [الهاتف] تحصل على "7082412756". يجب أن تتحدث مثل "سبعة صفر ثمانية اثنان أربعة واحد اثنان سبعة خمسة ستة"
 رمز دولة الهاتف: [رمز دولة الهاتف]
 
 يرجى التأكيد إذا كان كل شيء يبدو صحيحاً."
@@ -813,10 +813,10 @@ b. अपडेट प्रकार निर्धारित करें:
 पुष्टि के लिए मिले विवरण प्रदर्शित करें:
 "मुझे आपके विवरण मिल गए:
 नाम: [पूरा नाम]
-जन्मतिथि: [जन्मतिथि]
+जन्मतिथि: [जन्मतिथि] आपको इस तरह मिलता है "1970-01-01T00:00:00.000Z" आपको इस तरह बोलना चाहिए तारीख "1", महीना "जनवरी", वर्ष "1970"
 लिंग: [लिंग]
 ईमेल: [ईमेल]
-फोन: [फोन]
+फोन: [फोन] आपको "7082412756" मिलता है। आपको इस तरह बोलना चाहिए "सात शून्य आठ दो चार एक दो सात पांच छह"
 फोन देश कोड: [फोन देश कोड]
 
 कृपया पुष्टि करें कि क्या सब कुछ सही दिख रहा है।"
@@ -975,10 +975,10 @@ Llama a: @client_existence_check con el teléfono proporcionado
 Muestra los detalles encontrados para confirmación:
 "Encontré tus detalles:
 Nombre: [Nombre Completo]
-Fecha de Nacimiento: [Fecha de Nacimiento]
+Fecha de Nacimiento: [Fecha de Nacimiento] obtienes esto como "1970-01-01T00:00:00.000Z" debes hablar como fecha "1", mes "enero", año "1970"
 Género: [Género]
 Email: [Email]
-Teléfono: [teléfono]
+Teléfono: [teléfono] obtienes "7082412756". debes hablar como "siete cero ocho dos cuatro uno dos siete cinco seis"
 Código de País: [código de país]
 
 Por favor confirma si todo se ve correcto."
@@ -1137,10 +1137,10 @@ Appelez : @client_existence_check avec le téléphone fourni
 Affichez les détails trouvés pour confirmation :
 "J'ai trouvé vos détails :
 Nom : [Nom Complet]
-Date de Naissance : [Date de Naissance]
+Date de Naissance : [Date de Naissance] vous obtenez ceci comme "1970-01-01T00:00:00.000Z" vous devez parler comme date "1", mois "janvier", année "1970"
 Sexe : [Sexe]
 Email : [Email]
-Téléphone : [téléphone]
+Téléphone : [téléphone] vous obtenez "7082412756". vous devez parler comme "sept zéro huit deux quatre un deux sept cinq six"
 Code Pays : [code pays]
 
 Veuillez confirmer si tout semble correct."
