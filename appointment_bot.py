@@ -24,7 +24,7 @@ from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 load_dotenv(override=True)
 
 # API Configuration
-API_BASE_URL = "https://10953088fc2b.ngrok-free.app"
+API_BASE_URL = "https://0320eadabd1f.ngrok-free.app"
 API_DOCTOR_BASE_URL = "https://appointment.zavis.ai"
 API_ACCOUNT_ID = 1
 API_CENTER_ID = 0
@@ -409,7 +409,7 @@ Start with: "Hello! How can I help you today?"
 
 If user wants to view, update, reschedule, or cancel an appointment:
 
-✅ Do NOT ask for phone number - use client's existing phone from context
+✅ Do ask for phone number (without country code) from context
 ✅ Call: @client_appointments
 
 **If appointments found:**
@@ -455,7 +455,7 @@ b. Determine Update Type:
 
 **a. Fetch Doctors**
 Call: @doctor_list
-✅ If available → "Here are our available doctors — please choose one."
+✅ If available → Automatically speak all the doctor names first → "Here are our available doctors: [Doctor 1 Name], [Doctor 2 Name], [Doctor 3 Name] — please choose one."
 ❌ If none → "Looks like we don't have available doctors right now. Please check back later."
 
 **b. Doctor Selection**
@@ -571,7 +571,7 @@ If medical/legal advice:
 
 إذا أراد المستخدم عرض أو تحديث أو إعادة جدولة أو إلغاء موعد:
 
-✅ لا تطلب رقم الهاتف - استخدم رقم هاتف العميل الموجود في السياق
+✅ اسأل عن رقم الهاتف (بدون رمز الدولة) من السياق
 ✅ استدعِ: @client_appointments
 
 **إذا تم العثور على مواعيد:**
@@ -617,7 +617,7 @@ If medical/legal advice:
 
 **أ. جلب الأطباء**
 استدعِ: @doctor_list
-✅ إذا كان متاحاً → "إليك أطباؤنا المتاحون — يرجى اختيار واحد."
+✅ إذا كان متاحاً → تلقائياً اذكر جميع أسماء الأطباء أولاً → "إليك أطباؤنا المتاحون: [اسم الطبيب 1]، [اسم الطبيب 2]، [اسم الطبيب 3] — يرجى اختيار واحد."
 ❌ إذا لم يكن هناك → "يبدو أنه ليس لدينا أطباء متاحون الآن. يرجى المحاولة لاحقاً."
 
 **ب. اختيار الطبيب**
@@ -733,7 +733,7 @@ If medical/legal advice:
 
 यदि उपयोगकर्ता अपॉइंटमेंट देखना, अपडेट करना, रीशेड्यूल करना या रद्द करना चाहता है:
 
-✅ फोन नंबर न पूछें - संदर्भ से ग्राहक के मौजूदा फोन का उपयोग करें
+✅ फोन नंबर पूछें (देश कोड के बिना) संदर्भ से
 ✅ कॉल करें: @client_appointments
 
 **यदि अपॉइंटमेंट मिले:**
@@ -779,7 +779,7 @@ b. अपडेट प्रकार निर्धारित करें:
 
 **a. डॉक्टरों को प्राप्त करें**
 कॉल करें: @doctor_list
-✅ यदि उपलब्ध हो → "यहाँ हमारे उपलब्ध डॉक्टर हैं — कृपया एक चुनें।"
+✅ यदि उपलब्ध हो → स्वचालित रूप से पहले सभी डॉक्टरों के नाम बोलें → "यहाँ हमारे उपलब्ध डॉक्टर हैं: [डॉक्टर 1 का नाम], [डॉक्टर 2 का नाम], [डॉक्टर 3 का नाम] — कृपया एक चुनें।"
 ❌ यदि कोई नहीं → "ऐसा लगता है कि अभी हमारे पास उपलब्ध डॉक्टर नहीं हैं। कृपया बाद में देखें।"
 
 **b. डॉक्टर का चयन**
@@ -895,7 +895,7 @@ Comienza con: "¡Hola! ¿Cómo puedo ayudarte hoy?"
 
 Si el usuario quiere ver, actualizar, reprogramar o cancelar una cita:
 
-✅ NO preguntes por el número de teléfono - usa el teléfono existente del cliente del contexto
+✅ Pregunta por el número de teléfono (sin código de país) del contexto
 ✅ Llama a: @client_appointments
 
 **Si se encuentran citas:**
@@ -941,7 +941,7 @@ b. Determinar Tipo de Actualización:
 
 **a. Obtener Médicos**
 Llama a: @doctor_list
-✅ Si están disponibles → "Aquí están nuestros médicos disponibles — por favor elige uno."
+✅ Si están disponibles → Automáticamente menciona todos los nombres de médicos primero → "Aquí están nuestros médicos disponibles: [Nombre del Médico 1], [Nombre del Médico 2], [Nombre del Médico 3] — por favor elige uno."
 ❌ Si no hay → "Parece que no tenemos médicos disponibles ahora. Por favor vuelve a intentar más tarde."
 
 **b. Selección de Médico**
@@ -1057,7 +1057,7 @@ Commencez par : "Bonjour ! Comment puis-je vous aider aujourd'hui ?"
 
 Si l'utilisateur veut voir, mettre à jour, reprogrammer ou annuler un rendez-vous :
 
-✅ NE demandez PAS le numéro de téléphone - utilisez le téléphone existant du client du contexte
+✅ Demandez le numéro de téléphone (sans code pays) du contexte
 ✅ Appelez : @client_appointments
 
 **Si des rendez-vous sont trouvés :**
@@ -1103,7 +1103,7 @@ b. Déterminer le Type de Mise à Jour :
 
 **a. Obtenir les Médecins**
 Appelez : @doctor_list
-✅ Si disponibles → "Voici nos médecins disponibles — veuillez en choisir un."
+✅ Si disponibles → Automatiquement mentionnez tous les noms de médecins en premier → "Voici nos médecins disponibles : [Nom du Médecin 1], [Nom du Médecin 2], [Nom du Médecin 3] — veuillez en choisir un."
 ❌ Si aucun → "Il semble que nous n'ayons pas de médecins disponibles pour le moment. Veuillez réessayer plus tard."
 
 **b. Sélection du Médecin**
