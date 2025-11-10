@@ -1200,21 +1200,18 @@ Si conseil médical/juridique :
 """
 }
 
-# Default to English
-APPOINTMENT_SYSTEM_INSTRUCTION = SYSTEM_INSTRUCTIONS["en"]
+# Default system instruction is English template with explicit auto-detect and fallback guidance
+APPOINTMENT_SYSTEM_INSTRUCTION = SYSTEM_INSTRUCTIONS["en"] + "\n\nSupported languages: English (en), Arabic (ar), Hindi (hi), Spanish (es), French (fr). If the detected language is not one of these or you are unsure, ask in English which language they prefer and continue in that language after they answer. If the user switches languages mid-conversation, seamlessly switch to that language."
 
 
-async def run_appointment_bot(webrtc_connection, voice: str = "Puck", language: str = "en"):
-    """Run the appointment booking bot with multi-language support
+async def run_appointment_bot(webrtc_connection, voice: str = "Puck"):
+    """Run the appointment booking bot with automatic multi-language support
     
     Args:
         webrtc_connection: WebRTC connection object
         voice: Voice ID for Gemini TTS
-        language: Language code (en, ar, hi, es, fr)
     """
-    # Select the appropriate system instruction based on language
-    selected_instruction = SYSTEM_INSTRUCTIONS.get(language, SYSTEM_INSTRUCTIONS["en"])
-    logger.info(f"Starting appointment bot with voice={voice}, language={language}")
+    logger.info(f"Starting appointment bot with voice={voice} (auto language)")
     
     pipecat_transport = SmallWebRTCTransport(
         webrtc_connection=webrtc_connection,
@@ -1327,12 +1324,12 @@ async def run_appointment_bot(webrtc_connection, voice: str = "Puck", language: 
         ]
     )
 
-    # Initialize Gemini Vertex LLM service with selected language instruction
+    # Initialize Gemini Vertex LLM service with auto language instruction
     llm_service = GeminiLiveVertexLLMService(
         credentials=os.getenv("GOOGLE_VERTEX_TEST_CREDENTIALS") or '',
         project_id=os.getenv("GOOGLE_CLOUD_PROJECT_ID") or '',
         location=os.getenv("GOOGLE_CLOUD_LOCATION") or '',
-        system_instruction=selected_instruction,
+        system_instruction=APPOINTMENT_SYSTEM_INSTRUCTION,
         voice_id=voice,
         tools=tools,
     )

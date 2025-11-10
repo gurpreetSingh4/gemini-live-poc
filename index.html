@@ -47,16 +47,7 @@
             </select>
         </div>
         
-        <div class="config-row">
-            <label for="language-select">Language (Appointment Bot):</label>
-            <select id="language-select">
-                <option value="en">🇬🇧 English</option>
-                <option value="ar">🇦🇪 Arabic (العربية)</option>
-                <option value="hi">🇮🇳 Hindi (हिंदी)</option>
-                <option value="es">🇪🇸 Spanish (Español)</option>
-                <option value="fr">🇫🇷 French (Français)</option>
-            </select>
-        </div>
+    <!-- Language selection removed: bot now auto-detects and responds in user's language -->
     </div>
     
     <p id="status">Disconnected</p>
@@ -89,7 +80,7 @@
         const audioEl = document.getElementById("audio-el")
         const modelSelect = document.getElementById("model-select")
         const voiceSelect = document.getElementById("voice-select")
-        const languageSelect = document.getElementById("language-select")
+    // Language selector removed; server will auto-detect language
 
         let connected = false
         let peerConnection = null
@@ -194,7 +185,7 @@
             const offer = pc.localDescription
             const selectedModel = modelSelect.value
             const selectedVoice = voiceSelect.value
-            const selectedLanguage = languageSelect.value
+            // No selectedLanguage needed; backend does auto language detection
             
             // Use configured server URL or same origin
             const apiUrl = SERVER_URL ? `${SERVER_URL}/api/offer` : '/api/offer';
@@ -206,7 +197,7 @@
                     model: selectedModel,
                     voice: selectedVoice,
                     mode: mode,  // 'general' or 'appointment'
-                    language: selectedLanguage  // Language for appointment bot
+                    // language omitted; backend handles language detection
                 }),
                 headers: { 'Content-Type': 'application/json' },
                 method: 'POST',

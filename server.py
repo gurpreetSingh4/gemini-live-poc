@@ -8,7 +8,7 @@ import uvicorn
 from bot import run_bot
 from appointment_bot import run_appointment_bot
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from loguru import logger
@@ -63,9 +63,8 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
     model = request.get("model", "gemini_live_llm")  # Default to gemini
     voice = request.get("voice", "Puck")  # Default voice
     mode = request.get("mode", "general")  # 'general' or 'appointment'
-    language = request.get("language", "en")  # Default to English, supports: en, ar, hi, es, fr
-    
-    logger.info(f"Received offer request - pc_id: {pc_id}, model: {model}, voice: {voice}, mode: {mode}, language: {language}")
+    # language param removed; bot will auto-detect user's language
+    logger.info(f"Received offer request - pc_id: {pc_id}, model: {model}, voice: {voice}, mode: {mode}")
 
     if pc_id and pc_id in pcs_map:
         pipecat_connection = pcs_map[pc_id]
@@ -84,16 +83,23 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
 
         # Route to appropriate bot based on mode
         if mode == "appointment":
-            logger.info(f"Starting appointment booking bot with language: {language}")
-            background_tasks.add_task(run_appointment_bot, pipecat_connection, voice, language)
+            logger.info("Starting appointment booking bot (auto language)")
+            background_tasks.add_task(run_appointment_bot, pipecat_connection, voice)
         else:
             logger.info(f"Starting general bot with model: {model}, voice: {voice}")
             background_tasks.add_task(run_bot, pipecat_connection, model, voice)
 
     answer = pipecat_connection.get_answer()
-    pcs_map[answer["pc_id"]] = pipecat_connection
-    
-    logger.info(f"Returning answer for pc_id: {answer['pc_id']}")
+    if not answer:
+        logger.error("Failed to generate WebRTC answer")
+        raise HTTPException(status_code=500, detail="Failed to create WebRTC answer")
+
+    pc_id_resp = answer.get("pc_id") if isinstance(answer, dict) else None
+    if pc_id_resp:
+        pcs_map[pc_id_resp] = pipecat_connection
+        logger.info(f"Returning answer for pc_id: {pc_id_resp}")
+    else:
+        logger.warning("Answer did not include pc_id; returning as-is")
     return answer
 
 
